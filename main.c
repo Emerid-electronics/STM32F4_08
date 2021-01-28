@@ -53,7 +53,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
-//void HAL_SYSTICK_Callback(void);
+void HAL_SYSTICK_Callback(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -91,7 +91,7 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-  //HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -221,9 +221,30 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-//void HAL_SYSTICK_Callback(void){
-//
-//}
+void HAL_SYSTICK_Callback(void){
+	static uint8_t interruptCounter = 0;
+	static uint8_t counterUp = 1;
+	static uint8_t duty = 0;
+
+	interruptCounter++;
+
+	if(interruptCounter == 40){ //1 kHz = 0.001 s //40*0.001s /inkrementacje * 100 inkrementacji Duty = 4s
+		interruptCounter = 0;
+
+		if(duty == 100)
+			counterUp = 0;
+		else if(duty == 0)
+			counterUp = 1;
+
+		if(counterUp)
+			duty++;
+		else
+			duty--;
+
+		TIM4->CCR3 = duty;
+	}
+
+}
 /* USER CODE END 4 */
 
 /**
