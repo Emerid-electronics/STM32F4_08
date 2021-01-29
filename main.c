@@ -43,14 +43,16 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim4;
+DMA_HandleTypeDef hdma_tim4_ch3;
 
 /* USER CODE BEGIN PV */
-
+uint16_t duty = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_SYSTICK_Callback(void);
@@ -89,9 +91,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start_DMA(&htim4,TIM_CHANNEL_3, (uint32_t*) &duty,1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -206,6 +209,21 @@ static void MX_TIM4_Init(void)
 
 }
 
+/** 
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
+
+}
+
 /**
   * @brief GPIO Initialization Function
   * @param None
@@ -224,7 +242,6 @@ static void MX_GPIO_Init(void)
 void HAL_SYSTICK_Callback(void){
 	static uint8_t interruptCounter = 0;
 	static uint8_t counterUp = 1;
-	static uint8_t duty = 0;
 
 	interruptCounter++;
 
@@ -240,8 +257,6 @@ void HAL_SYSTICK_Callback(void){
 			duty++;
 		else
 			duty--;
-
-		TIM4->CCR3 = duty;
 	}
 
 }
