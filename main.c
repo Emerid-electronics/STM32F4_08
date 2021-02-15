@@ -48,6 +48,16 @@ TIM_HandleTypeDef htim4;
 DMA_HandleTypeDef hdma_tim4_ch3;
 
 /* USER CODE BEGIN PV */
+uint16_t duty = 0;
+
+//Zmienne do obslugi encodera
+uint16_t pulse_counter = 0;
+
+//Zmienne obslugujace wejsciowy sygnal PWM
+volatile uint16_t IC_PWMPeriod_cycles;
+uint16_t IC_PWMPeriod_miliseconds;
+volatile uint16_t IC_PWMDuty_cycles;
+uint16_t IC_PWMDuty_percent;
 
 /* USER CODE END PV */
 
@@ -74,7 +84,8 @@ static void MX_TIM1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	const uint16_t InputTimerPeriodDuration_miliseconds = 20;
+	const uint16_t InputTimerResolution_cycles = 2000;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -100,13 +111,33 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  //HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start_DMA(&htim4,TIM_CHANNEL_3,(uint32_t*) &duty,1);
+  HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_ALL);
+  HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_IC_Start(&htim2, TIM_CHANNEL_2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  pulse_counter = (TIM1 ->CNT) /4;
+	  duty = pulse_counter;
+
+	  /* Wykonanie pomiarów Input Capture */
+	  IC_PWMPeriod_cycles = HAL_TIM_ReadCapturedValue(&htim2,TIM_CHANNEL_1) + 1; //+1 bo pewnie nie sczytuje 1 cyklu
+	  IC_PWMDuty_cycles = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_2) + 1;
+
+
+	  /* Obliczenia na podstawie zmierzonych wartosci
+	   * Koniecznosc uwzglednienia kolejnosci operacji arytmetycznych, bo
+	   * PeriodDuration / TimerResolution = 20 / 2000 = 0.01 = 0 dla int (uint16_t)
+	   * i dalsze mnozenie nie ma sensu, bo mnozy sie przez 0 */
+
+	  //20ms/2000cycles => 1 cycle = 0.01 ms =>
+	  IC_PWMPeriod_miliseconds = InputTimerPeriodDuration_miliseconds * IC_PWMPeriod_cycles / InputTimerResolution_cycles;
+	  //Duty = liczba zmierzonych cykli / liczba calkowita cykli * 100;
+	  IC_PWMDuty_percent = IC_PWMDuty_cycles * 100 / IC_PWMPeriod_cycles;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -177,7 +208,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 83;
+  htim1.Init.Period = 403;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
